@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Rummikub - Text Version</title>
+    <style>
+        body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; background: #f5f5f5; }
+        .tile { display: inline-block; padding: 2px 6px; margin: 1px; border: 1px solid #333; min-width: 30px; text-align: center; }
+        .red { color: red; }
+        .blue { color: blue; }
+        .black { color: black; }
+        .yellow { color: #b8860b; }
+        .joker { color: purple; font-weight: bold; }
+        .section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: white; }
+        input, button { font-family: monospace; padding: 5px; margin: 2px; }
+        .hidden { display: none; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+        h3 { margin-top: 0; }
+        .hand-table { border-collapse: collapse; width: 100%; }
+        .hand-table th, .hand-table td { border: 1px solid #ddd; padding: 4px; text-align: center; }
+        .hand-table th { background: #eee; }
+        .hand-table .color-header { font-weight: bold; }
+        .hand-table .tile-cell { cursor: pointer; }
+        .hand-table .tile-cell:hover { background: #f0f0f0; }
+        .hand-table td.empty { background: #fafafa; }
+    </style>
+</head>
+<body>
+    <h1>Rummikub - 文字版</h1>
+    
+    <div id="setup">
+        <h2>游戏设置</h2>
+        <label>玩家数量: 
+            <select id="playerCount">
+                <option value="2">2人</option>
+                <option value="3">3人</option>
+                <option value="4">4人</option>
+            </select>
+        </label>
+        <button onclick="startGame()">开始游戏</button>
+    </div>
+
+    <div id="game" class="hidden">
+        <div id="status"></div>
+        
+        <div class="section">
+            <h3>桌面上的牌组</h3>
+            <pre id="table"></pre>
+        </div>
+
+        <div class="section">
+            <h3>你的牌 (索引: 值)</h3>
+            <div id="playerHand"></div>
+        </div>
+
+        <div class="section">
+            <h3>操作记录</h3>
+            <pre id="history"></pre>
+        </div>
+
+        <div class="section">
+            <h3>操作</h3>
+            <div id="actions">
+                <button onclick="showPlayForm()">出牌</button>
+                <button onclick="drawTile()">抽牌</button>
+            </div>
+        </div>
+
+        <div id="playForm" class="hidden">
+            <h4>输入桌面新状态</h4>
+            <p>格式: 用中括号[]表示每个牌组，组内用空格分隔</p>
+            <p>例如: [10蓝 11蓝 12蓝] [7红 8红 9红]</p>
+            <p>注意: 桌面原有牌组 + 你出的牌 = 新桌面状态</p>
+            <div id="currentTableDisplay"></div>
+            <input id="playInput" placeholder="例如: [10蓝 11蓝 12蓝] [7红 8红 9红]">
+            <button onclick="playTiles()">确认出牌</button>
+            <button onclick="cancelPlay()">取消</button>
+        </div>
+
+        <div id="message"></div>
+    </div>
+
+    <div id="rules" class="section">
+        <h3>游戏规则</h3>
+        <pre>
+Rummikub 规则:
+
+【牌组】
+- 104张数字牌: 1-13，每个颜色各2张
+- 4种颜色: 黑色(黑/r/b/y 或 ./r/b/y)
+- 2张 joker: JK
+
+【初始设置】
+- 每人14张牌
+- 首次出牌必须达到15分以上(破冰)
+
+【出牌方式】
+- 输入桌面新状态: [牌组1] [牌组2] ...
+- 桌面原有牌 + 你打出的牌 = 新桌面状态
+- 例如: 原桌面 [5黑 6黑 7黑]，你打 4黑 8黑
+  输入: [4黑 5黑 6黑 7黑 8黑]
+
+【牌组类型】
+- 群组(set): 3+张相同数字不同颜色
+  例如: 1r 1b 1y 或 7r 7b 7y JK
+- 顺子(run): 3+张同颜色连续数字
+  例如: 3r 4r 5r 或 10b 11b 12b 13b
+
+【分值】
+- 数字牌: 等于数字大小
+- Joker: 25分
+
+【回合流程】
+1. 出牌/抽牌
+2. 电脑玩家行动
+3. 轮到你
+        </pre>
+    </div>
+
+<script>
+const COLORS = ['.', 'r', 'b', 'y'];
+const COLOR_NAMES = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' };
+
+let game = {
+    players: [],
+    currentPlayer: 0,
+    table: [],
+    deck: [],
+    initialMeldDone: [],
+    gameOver: false,
+    numPlayers: 2,
+    history: []
+};
+
+function addHistory(text) {
+    game.history.push(text);
+    let historyDiv = document.getElementById('history');
+    if (historyDiv) {
+        historyDiv.innerText = game.history.join('\n');
+    }
+}
+
+function createDeck() {
+    let deck = [];
+    for (let num = 1; num <= 13; num++) {
+        for (let color of COLORS) {
+            deck.push({ num, color, joker: false });
+            deck.push({ num, color, joker: false });
+        }
+    }
+    deck.push({ num: 0, color: '*', joker: true });
+    deck.push({ num: 0, color: '*', joker: true });
+    return shuffle(deck);
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function tileToString(tile) {
+    if (tile.joker) return 'JK';
+    return tile.num + COLOR_NAMES[tile.color];
+}
+
+function startGame() {
+    game.numPlayers = parseInt(document.getElementById('playerCount').value);
+    game.deck = createDeck();
+    game.players = [];
+    game.table = [];
+    game.initialMeldDone = new Array(game.numPlayers).fill(false);
+    game.currentPlayer = 0;
+    game.gameOver = false;
+    game.history = [];
+
+    for (let i = 0; i < game.numPlayers; i++) {
+        let hand = [];
+        for (let j = 0; j < 14; j++) {
+            if (game.deck.length > 0) {
+                hand.push(game.deck.pop());
+            }
+        }
+        hand.sort((a, b) => {
+            if (a.joker !== b.joker) return a.joker ? 1 : -1;
+            if (a.num !== b.num) return a.num - b.num;
+            return a.color.localeCompare(b.color);
+        });
+        game.players.push(hand);
+    }
+
+    document.getElementById('setup').classList.add('hidden');
+    document.getElementById('game').classList.remove('hidden');
+    render();
+}
+
+function render() {
+    let status = document.getElementById('status');
+    let player = game.players[game.currentPlayer];
+    let iceStatus = game.initialMeldDone[game.currentPlayer] ? '(已破冰)' : '(未破冰)';
+    status.innerHTML = `当前玩家: 玩家${game.currentPlayer + 1} ${iceStatus} | 桌面牌组数: ${game.table.length} | 牌堆剩余: ${game.deck.length}`;
+
+    let tableDiv = document.getElementById('table');
+    if (game.table.length === 0) {
+        tableDiv.innerHTML = '<em>桌面上没有牌组</em>';
+    } else {
+        tableDiv.innerHTML = game.table.map((group) => {
+            return `[${group.map(t => tileToString(t)).join(' ')}]`;
+        }).join('\n');
+    }
+
+    let handDiv = document.getElementById('playerHand');
+    let colorOrder = ['.', 'r', 'b', 'y'];
+    let colorLabels = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' };
+    
+    let tileMap = {};
+    for (let c of colorOrder) tileMap[c] = {};
+    let jokers = [];
+    
+    for (let i = 0; i < player.length; i++) {
+        let t = player[i];
+        if (t.joker) {
+            jokers.push(i);
+        } else {
+            if (!tileMap[t.color][t.num]) tileMap[t.color][t.num] = [];
+            tileMap[t.color][t.num].push(i);
+        }
+    }
+    
+    let html = '<table class="hand-table"><tr><th></th>';
+    for (let n = 1; n <= 13; n++) html += `<th>${n}</th>`;
+    html += '<th>J</th></tr>';
+    
+    for (let c of colorOrder) {
+        html += `<tr><th class="color-header ${c === '.' ? 'black' : c}">${colorLabels[c]}</th>`;
+        for (let n = 1; n <= 13; n++) {
+            if (tileMap[c][n]) {
+                let tiles = tileMap[c][n];
+                let display = tiles.map(idx => {
+                    let t = player[idx];
+                    return `[${idx}]${t.num}${COLOR_NAMES[t.color]}`;
+                }).join('<br>');
+                html += `<td class="tile-cell ${c === '.' ? 'black' : c}">${display}</td>`;
+            } else {
+                html += '<td class="empty"></td>';
+            }
+        }
+        html += '<td class="empty"></td></tr>';
+    }
+    
+    html += '<tr><th class="color-header">Joker</th><td colspan="13" class="empty"></td>';
+    if (jokers.length > 0) {
+        let display = jokers.map(idx => `[${idx}]JK`).join('<br>');
+        html += `<td class="tile-cell joker">${display}</td>`;
+    } else {
+        html += '<td class="empty"></td>';
+    }
+    html += '</tr></table>';
+    
+    handDiv.innerHTML = html;
+}
+
+function getTileValue(tile) {
+    return tile.joker ? 25 : tile.num;
+}
+
+function validateSet(tiles) {
+    if (tiles.length < 3) return false;
+    let num = null;
+    let colors = new Set();
+    for (let tile of tiles) {
+        if (tile.joker) continue;
+        if (num === null) num = tile.num;
+        else if (tile.num !== num) return false;
+        if (colors.has(tile.color)) return false;
+        colors.add(tile.color);
+    }
+    return colors.size >= 2 || tiles.some(t => t.joker);
+}
+
+function validateRun(tiles) {
+    if (tiles.length < 3) return false;
+    let color = null;
+    let nums = [];
+    for (let tile of tiles) {
+        if (!tile.joker) {
+            if (color === null) color = tile.color;
+            else if (tile.color !== color) return false;
+            nums.push(tile.num);
+        }
+    }
+    if (nums.length === 0) return false;
+    nums.sort((a, b) => a - b);
+    let jokers = tiles.filter(t => t.joker).length;
+    for (let i = 0; i < nums.length - 1; i++) {
+        let diff = nums[i + 1] - nums[i] - 1;
+        if (diff < 0) return false;
+        if (diff > jokers) return false;
+        jokers -= diff;
+    }
+    return true;
+}
+
+function showPlayForm() {
+    document.getElementById('actions').classList.add('hidden');
+    document.getElementById('playForm').classList.remove('hidden');
+    document.getElementById('playInput').value = '';
+    
+    let display = document.getElementById('currentTableDisplay');
+    if (game.table.length === 0) {
+        display.innerHTML = '<p>当前桌面: (空)</p>';
+    } else {
+        display.innerHTML = '<p>当前桌面: ' + game.table.map((group) => {
+            return `[${group.map(t => tileToString(t)).join(' ')}]`;
+        }).join('\n') + '</p>';
+    }
+}
+
+function cancelPlay() {
+    document.getElementById('playForm').classList.add('hidden');
+    document.getElementById('actions').classList.remove('hidden');
+    document.getElementById('message').innerHTML = '';
+}
+
+function playTiles() {
+    let input = document.getElementById('playInput').value.trim();
+    
+    let newTable = parseTableInput(input);
+    if (!newTable) {
+        document.getElementById('message').innerHTML = '<span style="color:red">格式错误! 正确格式: [牌1 牌2 牌3] [牌4 牌5 牌6]</span>';
+        return;
+    }
+    
+    for (let group of newTable) {
+        if (!validateSet(group) && !validateRun(group)) {
+            document.getElementById('message').innerHTML = '<span style="color:red">无效的牌组: ' + group.map(t => tileToString(t)).join(' ') + '</span>';
+            return;
+        }
+    }
+    
+    let oldTableFlat = flattenTable(game.table);
+    let newTableFlat = flattenTable(newTable);
+    
+    let addedTiles = findAddedTiles(oldTableFlat, newTableFlat);
+    
+    if (addedTiles.length === 0) {
+        document.getElementById('message').innerHTML = '<span style="color:red">你没有打出任何新牌!</span>';
+        return;
+    }
+    
+    let player = game.players[game.currentPlayer];
+    let playerFlat = flattenHand(player);
+    
+    let canRemove = true;
+    let removeIndices = [];
+    let usedCount = {};
+    
+    for (let tile of addedTiles) {
+        let key = tileToKey(tile);
+        let count = usedCount[key] || 0;
+        let available = countTiles(playerFlat, key);
+        
+        if (count >= available) {
+            canRemove = false;
+            break;
+        }
+        
+        let idx = findTileIndexInHand(player, tile, usedCount);
+        if (idx === -1) {
+            canRemove = false;
+            break;
+        }
+        removeIndices.push(idx);
+        usedCount[key] = count + 1;
+    }
+    
+    if (!canRemove) {
+        document.getElementById('message').innerHTML = '<span style="color:red">你的手牌中没有这些牌: ' + addedTiles.map(t => tileToString(t)).join(' ') + '</span>';
+        return;
+    }
+    
+    let totalValue = addedTiles.reduce((sum, t) => sum + getTileValue(t), 0);
+    
+    if (!game.initialMeldDone[game.currentPlayer]) {
+        if (totalValue < 15) {
+            document.getElementById('message').innerHTML = `<span style="color:red">首次出牌需要至少15分，当前: ${totalValue}分</span>`;
+            return;
+        }
+        game.initialMeldDone[game.currentPlayer] = true;
+    }
+    
+    removeIndices.sort((a, b) => b - a);
+    for (let idx of removeIndices) {
+        player.splice(idx, 1);
+    }
+    
+    game.table = newTable;
+    
+    document.getElementById('message').innerHTML = `<span style="color:green">成功出牌! 分值: ${totalValue}</span>`;
+    
+    // 添加出牌记录到历史
+    let playerName = game.currentPlayer === 0 ? '你' : `玩家${game.currentPlayer + 1}`;
+    let tilesStr = addedTiles.map(t => tileToString(t)).join(', ');
+    addHistory(`${playerName}出牌: ${tilesStr} (${totalValue}分)`);
+    
+    document.getElementById('playForm').classList.add('hidden');
+    document.getElementById('actions').classList.remove('hidden');
+    
+    checkWin();
+    if (!game.gameOver) {
+        nextPlayer();
+    }
+}
+
+function parseTableInput(input) {
+    let groups = [];
+    let regex = /\[([^\]]+)\]/g;
+    let match;
+    
+    while ((match = regex.exec(input)) !== null) {
+        let tiles = [];
+        let parts = match[1].trim().split(/\s+/);
+        for (let p of parts) {
+            if (p === '') continue;
+            let tile = parseTileString(p);
+            if (!tile) return null;
+            tiles.push(tile);
+        }
+        if (tiles.length > 0) groups.push(tiles);
+    }
+    
+    return groups.length > 0 ? groups : null;
+}
+
+function parseTileString(str) {
+    str = str.trim();
+    if (str === 'JK' || str === ' joker' || str === 'joker') {
+        return { num: 0, color: '*', joker: true };
+    }
+    
+    let match = str.match(/^(\d+)([.\-rby])$/);
+    if (!match) {
+        let colorMap = { '黑': '.', '红': 'r', '蓝': 'b', '黄': 'y' };
+        match = str.match(/^(\d+)([红蓝黄黑])$/);
+        if (match) {
+            match[2] = colorMap[match[2]] || match[2];
+        }
+    }
+    
+    if (!match) return null;
+    
+    return {
+        num: parseInt(match[1]),
+        color: match[2],
+        joker: false
+    };
+}
+
+function flattenTable(table) {
+    let result = [];
+    for (let group of table) {
+        result = result.concat(group);
+    }
+    return result;
+}
+
+function flattenHand(hand) {
+    return hand.slice();
+}
+
+function tileToKey(tile) {
+    if (tile.joker) return 'JK';
+    return tile.num + tile.color;
+}
+
+function countTiles(tiles, key) {
+    return tiles.filter(t => tileToKey(t) === key).length;
+}
+
+function findAddedTiles(oldFlat, newFlat) {
+    let oldCounts = {};
+    let newCounts = {};
+    
+    for (let t of oldFlat) {
+        let key = tileToKey(t);
+        oldCounts[key] = (oldCounts[key] || 0) + 1;
+    }
+    for (let t of newFlat) {
+        let key = tileToKey(t);
+        newCounts[key] = (newCounts[key] || 0) + 1;
+    }
+    
+    let added = [];
+    for (let key in newCounts) {
+        let oldCount = oldCounts[key] || 0;
+        let newCount = newCounts[key];
+        let diff = newCount - oldCount;
+        
+        for (let i = 0; i < diff; i++) {
+            if (key === 'JK') {
+                added.push({ num: 0, color: '*', joker: true });
+            } else {
+                added.push(parseTileString(key));
+            }
+        }
+    }
+    
+    return added;
+}
+
+function findTileIndexInHand(hand, tile, usedCount) {
+    let key = tileToKey(tile);
+    let count = usedCount[key] || 0;
+    
+    for (let i = 0; i < hand.length; i++) {
+        if (tileToKey(hand[i]) === key) {
+            let c = usedCount[tileToKey(hand[i])] || 0;
+            if (c === count) {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+function drawTile() {
+    if (game.deck.length === 0) {
+        document.getElementById('message').innerHTML = '<span style="color:red">牌堆已空!</span>';
+        return;
+    }
+    let tile = game.deck.pop();
+    game.players[game.currentPlayer].push(tile);
+    document.getElementById('message').innerHTML = `<span style="color:green">抽到: ${tileToString(tile)}</span>`;
+    
+    // 添加抽牌记录到历史
+    let playerName = game.currentPlayer === 0 ? '你' : `玩家${game.currentPlayer + 1}`;
+    addHistory(`${playerName}抽牌: ${tileToString(tile)}`);
+    
+    nextPlayer();
+}
+
+function checkWin() {
+    if (game.players[game.currentPlayer].length === 0) {
+        game.gameOver = true;
+        let scores = [];
+        for (let i = 0; i < game.players.length; i++) {
+            let score = game.players[i].reduce((sum, t) => sum + getTileValue(t), 0);
+            scores.push(score);
+        }
+        
+        let winner = game.currentPlayer;
+        let winnerScore = scores.reduce((a, b) => a + b, 0);
+        
+        let result = `<h2>游戏结束!</h2><p>玩家${winner + 1}获胜!</p>`;
+        result += '<p>得分:</p>';
+        for (let i = 0; i < scores.length; i++) {
+            let pts = i === winner ? winnerScore : -scores[i];
+            result += `<p>玩家${i + 1}: ${pts > 0 ? '+' : ''}${pts}</p>`;
+        }
+        document.getElementById('game').innerHTML = result;
+    }
+}
+
+function nextPlayer() {
+    if (game.gameOver) return;
+    
+    game.currentPlayer = (game.currentPlayer + 1) % game.numPlayers;
+    
+    if (game.currentPlayer === 0) {
+        render();
+        return;
+    }
+    
+    aiPlay();
+}
+
+function aiPlay() {
+    let playerIdx = game.currentPlayer;
+    let player = game.players[playerIdx];
+    
+    if (!game.initialMeldDone[playerIdx]) {
+        let bestGroup = findBestGroup(player);
+        if (bestGroup && getGroupValue(bestGroup) >= 15) {
+            let indices = [];
+            for (let tile of bestGroup) {
+                let idx = player.findIndex(t => t === tile);
+                if (idx >= 0) indices.push(idx);
+            }
+            indices.sort((a, b) => b - a);
+            for (let idx of indices) player.splice(idx, 1);
+            game.table.push(bestGroup);
+            game.initialMeldDone[playerIdx] = true;
+            document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}破冰成功!</span>`;
+            
+            // 添加破冰记录到历史
+            let tilesStr = bestGroup.map(t => tileToString(t)).join(', ');
+            addHistory(`玩家${playerIdx + 1}破冰: ${tilesStr}`);
+        } else {
+            if (game.deck.length > 0) {
+                let tile = game.deck.pop();
+                player.push(tile);
+                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}抽了一张牌</span>`;
+                
+                // 添加抽牌记录到历史
+                addHistory(`玩家${playerIdx + 1}抽牌: ${tileToString(tile)}`);
+            } else {
+                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}未出牌</span>`;
+            }
+        }
+    } else {
+        let validGroups = findAllValidGroups(player);
+        if (validGroups.length > 0) {
+            let group = validGroups[0];
+            let indices = [];
+            for (let tile of group) {
+                let idx = player.findIndex(t => t === tile);
+                if (idx >= 0) indices.push(idx);
+            }
+            indices.sort((a, b) => b - a);
+            for (let idx of indices) player.splice(idx, 1);
+            game.table.push(group);
+            document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}出牌成功!</span>`;
+            
+            // 添加出牌记录到历史
+            let tilesStr = group.map(t => tileToString(t)).join(', ');
+            let value = getGroupValue(group);
+            addHistory(`玩家${playerIdx + 1}出牌: ${tilesStr} (${value}分)`);
+        } else {
+            if (game.deck.length > 0) {
+                let tile = game.deck.pop();
+                player.push(tile);
+                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}抽了一张牌</span>`;
+                
+                // 添加抽牌记录到历史
+                addHistory(`玩家${playerIdx + 1}抽牌: ${tileToString(tile)}`);
+            } else {
+                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}未出牌</span>`;
+            }
+        }
+    }
+    
+    checkWin();
+    if (!game.gameOver) {
+        game.currentPlayer = (game.currentPlayer + 1) % game.numPlayers;
+        if (game.currentPlayer === 0) {
+            render();
+        } else {
+            setTimeout(aiPlay, 500);
+        }
+    }
+}
+
+function findBestGroup(tiles) {
+    let allCombos = [];
+    for (let i = 3; i <= Math.min(4, tiles.length); i++) {
+        allCombos = allCombos.concat(getCombinations(tiles, i));
+    }
+    let valid = allCombos.filter(c => validateSet(c) || validateRun(c));
+    if (valid.length === 0) return null;
+    valid.sort((a, b) => getGroupValue(b) - getGroupValue(a));
+    return valid[0];
+}
+
+function getCombinations(arr, k) {
+    if (k === 1) return arr.map(t => [t]);
+    let result = [];
+    for (let i = 0; i <= arr.length - k; i++) {
+        let rest = getCombinations(arr.slice(i + 1), k - 1);
+        for (let combo of rest) {
+            result.push([arr[i], ...combo]);
+        }
+    }
+    return result;
+}
+
+function getGroupValue(tiles) {
+    return tiles.reduce((sum, t) => sum + getTileValue(t), 0);
+}
+
+function findAllValidGroups(tiles) {
+    let allCombos = [];
+    for (let i = 3; i <= Math.min(4, tiles.length); i++) {
+        allCombos = allCombos.concat(getCombinations(tiles, i));
+    }
+    return allCombos.filter(c => validateSet(c) || validateRun(c));
+}
+</script>
+</body>
+</html>
