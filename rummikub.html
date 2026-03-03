@@ -344,9 +344,15 @@ function playTiles() {
     let newTableFlat = flattenTable(newTable);
     
     let addedTiles = findAddedTiles(oldTableFlat, newTableFlat);
+    let removedTiles = findRemovedTiles(oldTableFlat, newTableFlat);
     
     if (addedTiles.length === 0) {
         document.getElementById('message').innerHTML = '<span style="color:red">你没有打出任何新牌!</span>';
+        return;
+    }
+    
+    if (removedTiles.length > 0) {
+        document.getElementById('message').innerHTML = '<span style="color:red">无效操作: 不能从桌面移除牌! 移除了: ' + removedTiles.map(t => tileToString(t)).join(' ') + '</span>';
         return;
     }
     
@@ -508,6 +514,37 @@ function findAddedTiles(oldFlat, newFlat) {
     }
     
     return added;
+}
+
+function findRemovedTiles(oldFlat, newFlat) {
+    let oldCounts = {};
+    let newCounts = {};
+    
+    for (let t of oldFlat) {
+        let key = tileToKey(t);
+        oldCounts[key] = (oldCounts[key] || 0) + 1;
+    }
+    for (let t of newFlat) {
+        let key = tileToKey(t);
+        newCounts[key] = (newCounts[key] || 0) + 1;
+    }
+    
+    let removed = [];
+    for (let key in oldCounts) {
+        let oldCount = oldCounts[key] || 0;
+        let newCount = newCounts[key] || 0;
+        let diff = oldCount - newCount;
+        
+        for (let i = 0; i < diff; i++) {
+            if (key === 'JK') {
+                removed.push({ num: 0, color: '*', joker: true });
+            } else {
+                removed.push(parseTileString(key));
+            }
+        }
+    }
+    
+    return removed;
 }
 
 function findTileIndexInHand(hand, tile, usedCount) {
