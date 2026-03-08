@@ -71,11 +71,11 @@
 
         <div id="playForm" class="hidden">
             <h4>输入桌面新状态</h4>
-            <p>格式: 用中括号[]表示每个牌组，组内用空格分隔</p>
-            <p>例如: [10蓝 11蓝 12蓝] [7红 8红 9红]</p>
-            <p>注意: 桌面原有牌组 + 你出的牌 = 新桌面状态</p>
+            <p>格式：用中括号 [] 表示每个牌组，组内用空格分隔</p>
+            <p>例如：[10 蓝 11 蓝 12 蓝] [7 红 8 红 9 红]</p>
+            <p>注意：桌面原有牌组 + 你出的牌 = 新桌面状态</p>
             <div id="currentTableDisplay"></div>
-            <input id="playInput" placeholder="例如: [10蓝 11蓝 12蓝] [7红 8红 9红]">
+            <textarea id="playInput" rows="4" style="width:100%" placeholder="例如：[10 蓝 11 蓝 12 蓝] [7 红 8 红 9 红]"></textarea>
             <button onclick="playTiles()">确认出牌</button>
             <button onclick="cancelPlay()">取消</button>
         </div>
