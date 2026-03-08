@@ -11,6 +11,9 @@
         .black { color: black; }
         .yellow { color: #b8860b; }
         .joker { color: purple; font-weight: bold; }
+        .double-joker { color: orange; font-weight: bold; }
+        .color-change-joker { color: teal; font-weight: bold; }
+        .mirror-joker { color: brown; font-weight: bold; }
         .section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: white; }
         input, button { font-family: monospace; padding: 5px; margin: 2px; }
         .hidden { display: none; }
@@ -86,29 +89,38 @@
 Rummikub 规则:
 
 【牌组】
-- 104张数字牌: 1-13，每个颜色各2张
-- 4种颜色: 黑色(黑/r/b/y 或 ./r/b/y)
-- 2张 joker: JK
+- 104 张数字牌：1-13，每个颜色各 2 张
+- 4 种颜色：黑色 (黑/r/b/y 或./r/b/y)、红色、蓝色、黄色
+- 4 种 Joker 牌:
+  - JK (标准 Joker): 2 张，可替代任何牌，分值 25
+  - DJK (双 Joker): 2 张，可替代顺子中连续 2 张牌或群组中 2 张同数字不同颜色的牌，分值 25
+  - CJOK (变色 Joker): 2 张，只能在顺子中使用，使用后颜色必须改变，分值 25
+  - MJOK (镜像 Joker): 2 张，必须形成对称的顺子，如 3,2,MJOK,2,3，分值 0
 
 【初始设置】
-- 每人14张牌
-- 首次出牌必须达到15分以上(破冰)
+- 每人 14 张牌
+- 首次出牌必须达到 15 分以上 (破冰)
 
 【出牌方式】
-- 输入桌面新状态: [牌组1] [牌组2] ...
+- 输入桌面新状态：[牌组 1] [牌组 2] ...
 - 桌面原有牌 + 你打出的牌 = 新桌面状态
-- 例如: 原桌面 [5黑 6黑 7黑]，你打 4黑 8黑
-  输入: [4黑 5黑 6黑 7黑 8黑]
+- 例如：原桌面 [5 黑 6 黑 7 黑]，你打 4 黑 8 黑
+  输入：[4 黑 5 黑 6 黑 7 黑 8 黑]
 
 【牌组类型】
-- 群组(set): 3+张相同数字不同颜色
+- 群组 (set): 3+ 张相同数字不同颜色
   例如: 1r 1b 1y 或 7r 7b 7y JK
-- 顺子(run): 3+张同颜色连续数字
+  使用 DJK 时: 7r 7b DJK (代表 7r 7b 7y 或 7r 7b 7.)
+- 顺子 (run): 3+ 张同颜色连续数字
   例如: 3r 4r 5r 或 10b 11b 12b 13b
+  使用 DJK 时: 3r 4r DJK 6r (DJK 代表 4r 5r)
+  使用 CJOK 时: 3r 4r CJOK 6b 7b (颜色从红变蓝)
+  使用 MJOK 时: 3r 2r MJOK 2r 3r (对称顺子)
 
 【分值】
-- 数字牌: 等于数字大小
-- Joker: 25分
+- 数字牌：等于数字大小
+- 标准 Joker/Joker 变种: 25 分
+- 镜像 Joker: 0 分
 
 【回合流程】
 1. 出牌/抽牌
@@ -120,6 +132,12 @@ Rummikub 规则:
 <script>
 const COLORS = ['.', 'r', 'b', 'y'];
 const COLOR_NAMES = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' };
+const JOKER_TYPES = {
+    STANDARD: 'standard',
+    DOUBLE: 'double',
+    COLOR_CHANGE: 'color_change',
+    MIRROR: 'mirror'
+};
 
 let game = {
     players: [],
@@ -148,8 +166,14 @@ function createDeck() {
             deck.push({ num, color, joker: false });
         }
     }
-    deck.push({ num: 0, color: '*', joker: true });
-    deck.push({ num: 0, color: '*', joker: true });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.STANDARD });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.STANDARD });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.DOUBLE });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.DOUBLE });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.COLOR_CHANGE });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.COLOR_CHANGE });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.MIRROR });
+    deck.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.MIRROR });
     return shuffle(deck);
 }
 
@@ -162,7 +186,14 @@ function shuffle(array) {
 }
 
 function tileToString(tile) {
-    if (tile.joker) return 'JK';
+    if (tile.joker) {
+        switch(tile.jokerType) {
+            case JOKER_TYPES.DOUBLE: return 'DJK';
+            case JOKER_TYPES.COLOR_CHANGE: return 'CJOK';
+            case JOKER_TYPES.MIRROR: return 'MJOK';
+            default: return 'JK';
+        }
+    }
     return tile.num + COLOR_NAMES[tile.color];
 }
 
@@ -217,12 +248,20 @@ function render() {
     
     let tileMap = {};
     for (let c of colorOrder) tileMap[c] = {};
-    let jokers = [];
+    let standardJokers = [];
+    let doubleJokers = [];
+    let colorChangeJokers = [];
+    let mirrorJokers = [];
     
     for (let i = 0; i < player.length; i++) {
         let t = player[i];
         if (t.joker) {
-            jokers.push(i);
+            switch(t.jokerType) {
+                case JOKER_TYPES.DOUBLE: doubleJokers.push(i); break;
+                case JOKER_TYPES.COLOR_CHANGE: colorChangeJokers.push(i); break;
+                case JOKER_TYPES.MIRROR: mirrorJokers.push(i); break;
+                default: standardJokers.push(i); break;
+            }
         } else {
             if (!tileMap[t.color][t.num]) tileMap[t.color][t.num] = [];
             tileMap[t.color][t.num].push(i);
@@ -250,9 +289,33 @@ function render() {
         html += '<td class="empty"></td></tr>';
     }
     
-    html += '<tr><th class="color-header">Joker</th><td colspan="13" class="empty"></td>';
-    if (jokers.length > 0) {
-        let display = jokers.map(idx => `[${idx}]JK`).join('<br>');
+    html += '<tr><th class="color-header">Joker</th><td colspan="13" class="empty"></td><td class="empty"></td></tr>';
+    if (standardJokers.length > 0) {
+        let display = standardJokers.map(idx => `[${idx}]JK`).join('<br>');
+        html += `<td class="tile-cell joker">${display}</td>`;
+    } else {
+        html += '<td class="empty"></td>';
+    }
+    
+    html += '<tr><th class="color-header">D-Joker</th><td colspan="13" class="empty"></td>';
+    if (doubleJokers.length > 0) {
+        let display = doubleJokers.map(idx => `[${idx}]DJK`).join('<br>');
+        html += `<td class="tile-cell joker">${display}</td>`;
+    } else {
+        html += '<td class="empty"></td>';
+    }
+    
+    html += '<tr><th class="color-header">C-Joker</th><td colspan="13" class="empty"></td>';
+    if (colorChangeJokers.length > 0) {
+        let display = colorChangeJokers.map(idx => `[${idx}]CJOK`).join('<br>');
+        html += `<td class="tile-cell joker">${display}</td>`;
+    } else {
+        html += '<td class="empty"></td>';
+    }
+    
+    html += '<tr><th class="color-header">M-Joker</th><td colspan="13" class="empty"></td>';
+    if (mirrorJokers.length > 0) {
+        let display = mirrorJokers.map(idx => `[${idx}]MJOK`).join('<br>');
         html += `<td class="tile-cell joker">${display}</td>`;
     } else {
         html += '<td class="empty"></td>';
@@ -263,43 +326,147 @@ function render() {
 }
 
 function getTileValue(tile) {
-    return tile.joker ? 25 : tile.num;
+    if (tile.joker) {
+        if (tile.jokerType === JOKER_TYPES.MIRROR) return 0;
+        return 25;
+    }
+    return tile.num;
 }
 
 function validateSet(tiles) {
     if (tiles.length < 3) return false;
     let num = null;
     let colors = new Set();
+    let jokers = [];
     for (let tile of tiles) {
-        if (tile.joker) continue;
+        if (tile.joker) {
+            jokers.push(tile);
+            continue;
+        }
         if (num === null) num = tile.num;
         else if (tile.num !== num) return false;
         if (colors.has(tile.color)) return false;
         colors.add(tile.color);
     }
-    return colors.size >= 2 || tiles.some(t => t.joker);
+    
+    let doubleJokers = jokers.filter(j => j.jokerType === JOKER_TYPES.DOUBLE);
+    let standardJokers = jokers.filter(j => j.jokerType === JOKER_TYPES.STANDARD);
+    
+    if (doubleJokers.length > 0) {
+        if (colors.size < 1) return false;
+        return colors.size + doubleJokers.length === 3;
+    }
+    
+    let effectiveColors = colors.size + standardJokers.length;
+    return effectiveColors >= 3 || (colors.size >= 2 && standardJokers.length > 0);
 }
 
 function validateRun(tiles) {
     if (tiles.length < 3) return false;
+    
+    let mirrorJokers = tiles.filter(t => t.joker && t.jokerType === JOKER_TYPES.MIRROR);
+    if (mirrorJokers.length > 0) {
+        return validateMirrorRun(tiles);
+    }
+    
+    let colorChangeJokers = tiles.filter(t => t.joker && t.jokerType === JOKER_TYPES.COLOR_CHANGE);
+    if (colorChangeJokers.length > 0) {
+        return validateColorChangeRun(tiles);
+    }
+    
     let color = null;
     let nums = [];
+    let standardJokers = 0;
+    let doubleJokers = 0;
     for (let tile of tiles) {
         if (!tile.joker) {
             if (color === null) color = tile.color;
             else if (tile.color !== color) return false;
             nums.push(tile.num);
+        } else {
+            if (tile.jokerType === JOKER_TYPES.STANDARD) {
+                standardJokers++;
+            } else if (tile.jokerType === JOKER_TYPES.DOUBLE) {
+                doubleJokers++;
+            }
         }
     }
-    if (nums.length === 0) return false;
+    if (nums.length === 0 && doubleJokers === 0) return false;
     nums.sort((a, b) => a - b);
-    let jokers = tiles.filter(t => t.joker).length;
+    let jokers = standardJokers + doubleJokers * 2;
     for (let i = 0; i < nums.length - 1; i++) {
         let diff = nums[i + 1] - nums[i] - 1;
         if (diff < 0) return false;
         if (diff > jokers) return false;
         jokers -= diff;
     }
+    return true;
+}
+
+function validateMirrorRun(tiles) {
+    let mirrorJoker = tiles.find(t => t.joker && t.jokerType === JOKER_TYPES.MIRROR);
+    if (!mirrorJoker) return false;
+    
+    let midIndex = tiles.indexOf(mirrorJoker);
+    let leftTiles = tiles.slice(0, midIndex);
+    let rightTiles = tiles.slice(midIndex + 1);
+    
+    if (leftTiles.length !== rightTiles.length) return false;
+    if (leftTiles.length < 2) return false;
+    
+    let leftReverse = [...rightTiles].reverse();
+    for (let i = 0; i < leftTiles.length; i++) {
+        let left = leftTiles[i];
+        let right = leftReverse[i];
+        
+        if (left.joker || right.joker) continue;
+        if (left.color !== right.color) return false;
+        if (left.num !== right.num) return false;
+    }
+    return true;
+}
+
+function validateColorChangeRun(tiles) {
+    let colorChangeJokers = tiles.filter(t => t.joker && t.jokerType === JOKER_TYPES.COLOR_CHANGE);
+    if (colorChangeJokers.length !== 1) return false;
+    
+    let ccJoker = tiles.find(t => t.joker && t.jokerType === JOKER_TYPES.COLOR_CHANGE);
+    let ccIndex = tiles.indexOf(ccJoker);
+    
+    let leftTiles = tiles.slice(0, ccIndex);
+    let rightTiles = tiles.slice(ccIndex + 1);
+    
+    if (leftTiles.length < 2 || rightTiles.length < 1) return false;
+    
+    let leftColor = null;
+    for (let tile of leftTiles) {
+        if (!tile.joker) {
+            if (leftColor === null) leftColor = tile.color;
+            else if (tile.color !== leftColor) return false;
+        }
+    }
+    
+    let rightColor = null;
+    for (let tile of rightTiles) {
+        if (!tile.joker) {
+            if (rightColor === null) rightColor = tile.color;
+            else if (tile.color !== rightColor) return false;
+        }
+    }
+    
+    if (leftColor && rightColor && leftColor === rightColor) return false;
+    
+    let nums = [];
+    for (let tile of tiles) {
+        if (!tile.joker) nums.push(tile.num);
+    }
+    nums.sort((a, b) => a - b);
+    
+    for (let i = 0; i < nums.length - 1; i++) {
+        let diff = nums[i + 1] - nums[i];
+        if (diff < 1) return false;
+    }
+    
     return true;
 }
 
@@ -443,7 +610,16 @@ function parseTableInput(input) {
 function parseTileString(str) {
     str = str.trim();
     if (str === 'JK' || str === ' joker' || str === 'joker') {
-        return { num: 0, color: '*', joker: true };
+        return { num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.STANDARD };
+    }
+    if (str === 'DJK' || str === ' double_joker') {
+        return { num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.DOUBLE };
+    }
+    if (str === 'CJOK' || str === ' color_change_joker') {
+        return { num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.COLOR_CHANGE };
+    }
+    if (str === 'MJOK' || str === ' mirror_joker') {
+        return { num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.MIRROR };
     }
     
     let match = str.match(/^(\d+)([.\-rby])$/);
@@ -477,7 +653,14 @@ function flattenHand(hand) {
 }
 
 function tileToKey(tile) {
-    if (tile.joker) return 'JK';
+    if (tile.joker) {
+        switch(tile.jokerType) {
+            case JOKER_TYPES.DOUBLE: return 'DJK';
+            case JOKER_TYPES.COLOR_CHANGE: return 'CJOK';
+            case JOKER_TYPES.MIRROR: return 'MJOK';
+            default: return 'JK';
+        }
+    }
     return tile.num + tile.color;
 }
 
@@ -506,7 +689,13 @@ function findAddedTiles(oldFlat, newFlat) {
         
         for (let i = 0; i < diff; i++) {
             if (key === 'JK') {
-                added.push({ num: 0, color: '*', joker: true });
+                added.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.STANDARD });
+            } else if (key === 'DJK') {
+                added.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.DOUBLE });
+            } else if (key === 'CJOK') {
+                added.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.COLOR_CHANGE });
+            } else if (key === 'MJOK') {
+                added.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.MIRROR });
             } else {
                 added.push(parseTileString(key));
             }
@@ -537,7 +726,13 @@ function findRemovedTiles(oldFlat, newFlat) {
         
         for (let i = 0; i < diff; i++) {
             if (key === 'JK') {
-                removed.push({ num: 0, color: '*', joker: true });
+                removed.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.STANDARD });
+            } else if (key === 'DJK') {
+                removed.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.DOUBLE });
+            } else if (key === 'CJOK') {
+                removed.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.COLOR_CHANGE });
+            } else if (key === 'MJOK') {
+                removed.push({ num: 0, color: '*', joker: true, jokerType: JOKER_TYPES.MIRROR });
             } else {
                 removed.push(parseTileString(key));
             }
@@ -553,9 +748,18 @@ function findTileIndexInHand(hand, tile, usedCount) {
     
     for (let i = 0; i < hand.length; i++) {
         if (tileToKey(hand[i]) === key) {
-            let c = usedCount[tileToKey(hand[i])] || 0;
-            if (c === count) {
-                return i;
+            if (tile.joker && hand[i].joker) {
+                if (hand[i].jokerType === tile.jokerType) {
+                    let c = usedCount[tileToKey(hand[i])] || 0;
+                    if (c === count) {
+                        return i;
+                    }
+                }
+            } else if (!tile.joker && !hand[i].joker) {
+                let c = usedCount[tileToKey(hand[i])] || 0;
+                if (c === count) {
+                    return i;
+                }
             }
         }
     }
@@ -691,7 +895,7 @@ function aiPlay() {
 
 function findBestGroup(tiles) {
     let allCombos = [];
-    for (let i = 3; i <= Math.min(4, tiles.length); i++) {
+    for (let i = 3; i <= tiles.length; i++) {
         allCombos = allCombos.concat(getCombinations(tiles, i));
     }
     let valid = allCombos.filter(c => validateSet(c) || validateRun(c));
@@ -718,7 +922,7 @@ function getGroupValue(tiles) {
 
 function findAllValidGroups(tiles) {
     let allCombos = [];
-    for (let i = 3; i <= Math.min(4, tiles.length); i++) {
+    for (let i = 3; i <= tiles.length; i++) {
         allCombos = allCombos.concat(getCombinations(tiles, i));
     }
     return allCombos.filter(c => validateSet(c) || validateRun(c));
