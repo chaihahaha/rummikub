@@ -2,82 +2,86 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Rummikub - Text Version</title>
+    <title>Rummikub - 图形版</title>
     <style>
-        body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; background: #f5f5f5; }
-        .tile { display: inline-block; padding: 2px 6px; margin: 1px; border: 1px solid #333; min-width: 30px; text-align: center; }
-        .red { color: red; }
-        .blue { color: blue; }
-        .black { color: black; }
-        .yellow { color: #b8860b; }
-        .joker { color: purple; font-weight: bold; }
-        .double-joker { color: orange; font-weight: bold; }
-        .color-change-joker { color: teal; font-weight: bold; }
-        .mirror-joker { color: brown; font-weight: bold; }
-        .section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: white; }
-        input, button { font-family: monospace; padding: 5px; margin: 2px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .game-container { background: rgba(255,255,255,0.95); border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .tile { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; margin: 3px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: grab; user-select: none; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); transition: all 0.2s; min-width: 40px; height: 35px; }
+        .tile:hover { transform: translateY(-2px); box-shadow: 3px 3px 8px rgba(0,0,0,0.3); }
+        .tile.dragging { opacity: 0.5; cursor: grabbing; }
+        .red { background: linear-gradient(135deg, #ff6b6b, #c0392b); color: white; }
+        .blue { background: linear-gradient(135deg, #4a90d9, #2980b9); color: white; }
+        .black { background: linear-gradient(135deg, #4a4a4a, #2c2c2c); color: white; }
+        .yellow { background: linear-gradient(135deg, #f5a623, #d68a00); color: white; }
+        .joker { background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; }
+        .double-joker { background: linear-gradient(135deg, #e67e22, #d35400); color: white; }
+        .color-change-joker { background: linear-gradient(135deg, #1abc9c, #16a085); color: white; }
+        .mirror-joker { background: linear-gradient(135deg, #a569bd, #7f8c8d); color: white; }
+        .section { margin: 15px 0; padding: 15px; border-radius: 10px; background: rgba(255,255,255,0.7); border: 2px solid #ddd; }
+        .table-area { min-height: 150px; background: rgba(200, 180, 140, 0.3); border: 3px dashed #c9a876; border-radius: 10px; padding: 15px; }
+        .table-area.drag-over { background: rgba(255, 230, 200, 0.5); border-color: #ff8c00; }
+        .hand-area { background: rgba(100, 140, 100, 0.2); border: 3px solid #6b8c6b; border-radius: 10px; padding: 15px; min-height: 100px; }
+        .meld-group { display: inline-flex; flex-wrap: wrap; align-items: center; padding: 10px; margin: 8px; background: rgba(255,255,255,0.8); border-radius: 8px; border: 2px solid #ccc; min-width: 100px; }
+        .meld-group.drag-over { background: rgba(200, 240, 200, 0.6); border-color: #4caf50; }
+        button { font-family: 'Segoe UI', sans-serif; padding: 10px 20px; margin: 5px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); }
+        button:hover { transform: translateY(-2px); box-shadow: 3px 3px 8px rgba(0,0,0,0.3); }
+        button.start { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; }
+        button.play { background: linear-gradient(135deg, #2196F3, #1976D2); color: white; }
+        button.draw { background: linear-gradient(135deg, #FF9800, #F57C00); color: white; }
+        button.confirm { background: linear-gradient(135deg, #4CAF50, #388E3C); color: white; }
+        button.cancel { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; }
         .hidden { display: none; }
-        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
-        h3 { margin-top: 0; }
-        .hand-table { border-collapse: collapse; width: 100%; }
-        .hand-table th, .hand-table td { border: 1px solid #ddd; padding: 4px; text-align: center; }
-        .hand-table th { background: #eee; }
-        .hand-table .color-header { font-weight: bold; }
-        .hand-table .tile-cell { cursor: pointer; }
-        .hand-table .tile-cell:hover { background: #f0f0f0; }
-        .hand-table td.empty { background: #fafafa; }
+        h1 { color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h2, h3, h4 { color: #333; margin: 10px 0; }
+        .status { font-size: 18px; font-weight: bold; padding: 10px; background: rgba(255,255,255,0.9); border-radius: 8px; margin: 10px 0; }
+        .message { padding: 10px; border-radius: 8px; margin: 10px 0; }
+        .message.success { background: #e8f5e9; color: #2e7d32; }
+        .message.error { background: #ffebee; color: #c62828; }
+        .drag-source { outline: 3px solid #ff8c00; }
+        .setup { text-align: center; padding: 30px; }
+        .setup select { font-size: 16px; padding: 8px; margin: 10px; border-radius: 5px; }
+        .rules { font-size: 12px; max-height: 200px; overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <h1>Rummikub - 文字版</h1>
+    <h1>Rummikub - 图形版</h1>
     
     <div id="setup">
         <h2>游戏设置</h2>
         <label>玩家数量: 
             <select id="playerCount">
-                <option value="2">2人</option>
-                <option value="3">3人</option>
-                <option value="4">4人</option>
+                <option value="2">2 人</option>
+                <option value="3">3 人</option>
+                <option value="4">4 人</option>
             </select>
         </label>
-        <button onclick="startGame()">开始游戏</button>
+        <button class="start" onclick="startGame()">开始游戏</button>
     </div>
 
     <div id="game" class="hidden">
-        <div id="status"></div>
+        <div id="status" class="status"></div>
         
         <div class="section">
-            <h3>桌面上的牌组</h3>
-            <pre id="table"></pre>
+            <h3>桌面上的牌组（拖拽牌到此区域）</h3>
+            <div id="tableArea" class="table-area" ondrop="dropOnTable(event)" ondragover="allowDrop(event)" ondragleave="leaveTableDrop(event)"></div>
         </div>
 
         <div class="section">
-            <h3>你的牌 (索引: 值)</h3>
-            <div id="playerHand"></div>
+            <h3>你的手牌（拖拽牌到桌面或其他牌组）</h3>
+            <div id="handArea" class="hand-area"></div>
         </div>
 
         <div class="section">
             <h3>操作记录</h3>
-            <pre id="history"></pre>
+            <div id="history"></div>
         </div>
 
         <div class="section">
             <h3>操作</h3>
-            <div id="actions">
-                <button onclick="showPlayForm()">出牌</button>
-                <button onclick="drawTile()">抽牌</button>
-            </div>
-        </div>
-
-        <div id="playForm" class="hidden">
-            <h4>输入桌面新状态</h4>
-            <p>格式：用中括号 [] 表示每个牌组，组内用空格分隔</p>
-            <p>例如：[10 蓝 11 蓝 12 蓝] [7 红 8 红 9 红]</p>
-            <p>注意：桌面原有牌组 + 你出的牌 = 新桌面状态</p>
-            <div id="currentTableDisplay"></div>
-            <textarea id="playInput" rows="4" style="width:100%" placeholder="例如：[10 蓝 11 蓝 12 蓝] [7 红 8 红 9 红]"></textarea>
-            <button onclick="playTiles()">确认出牌</button>
-            <button onclick="cancelPlay()">取消</button>
+        <div id="actions">
+            <button class="play" onclick="confirmPlay()">确认出牌</button>
+            <button class="draw" onclick="drawTile()">抽牌</button>
+            <button class="cancel" onclick="resetTable();showMessage('已重置桌面','success')">重置桌面</button>
         </div>
 
         <div id="message"></div>
@@ -85,12 +89,12 @@
 
     <div id="rules" class="section">
         <h3>游戏规则</h3>
-        <pre>
+        <div class="rules">
 Rummikub 规则:
 
 【牌组】
 - 104 张数字牌：1-13，每个颜色各 2 张
-- 4 种颜色：黑色 (黑/r/b/y 或./r/b/y)、红色、蓝色、黄色
+- 4 种颜色：黑色、红色、蓝色、黄色
 - 4 种 Joker 牌:
   - JK (标准 Joker): 2 张，可替代任何牌，分值 25
   - DJK (双 Joker): 2 张，可替代顺子中连续 2 张牌或群组中 2 张同数字不同颜色的牌，分值 25
@@ -101,32 +105,28 @@ Rummikub 规则:
 - 每人 14 张牌
 - 首次出牌必须达到 15 分以上 (破冰)
 
-【出牌方式】
-- 输入桌面新状态：[牌组 1] [牌组 2] ...
-- 桌面原有牌 + 你打出的牌 = 新桌面状态
-- 例如：原桌面 [5 黑 6 黑 7 黑]，你打 4 黑 8 黑
-  输入：[4 黑 5 黑 6 黑 7 黑 8 黑]
+【操作方式】
+- 拖动手牌到桌面区域创建新牌组
+- 拖动手牌到已有牌组添加牌
+- 拖动桌面牌到另一个牌组重组
+- 点击"确认出牌"验证操作是否合法
+- 点击"重置桌面"撤销操作
 
 【牌组类型】
 - 群组 (set): 3+ 张相同数字不同颜色
-  例如: 1r 1b 1y 或 7r 7b 7y JK
-  使用 DJK 时: 7r 7b DJK (代表 7r 7b 7y 或 7r 7b 7.)
 - 顺子 (run): 3+ 张同颜色连续数字
-  例如: 3r 4r 5r 或 10b 11b 12b 13b
-  使用 DJK 时: 3r 4r DJK 6r (DJK 代表 4r 5r)
-  使用 CJOK 时: 3r 4r CJOK 6b 7b (颜色从红变蓝)
-  使用 MJOK 时: 3r 2r MJOK 2r 3r (对称顺子)
 
 【分值】
 - 数字牌：等于数字大小
-- 标准 Joker/Joker 变种: 25 分
+- 标准 Joker/Joker 变种：25 分
 - 镜像 Joker: 0 分
 
 【回合流程】
-1. 出牌/抽牌
-2. 电脑玩家行动
-3. 轮到你
-        </pre>
+1. 拖动牌操作/抽牌
+2. 点击"确认出牌"或"抽牌"
+3. 电脑玩家行动
+4. 轮到你
+        </div>
     </div>
 
 <script>
@@ -143,11 +143,16 @@ let game = {
     players: [],
     currentPlayer: 0,
     table: [],
+    originalTable: [],
     deck: [],
     initialMeldDone: [],
     gameOver: false,
     numPlayers: 2,
-    history: []
+    history: [],
+    draggedTile: null,
+    draggedFrom: null,
+    draggedIndex: null,
+    workspaceKeys: {}
 };
 
 function addHistory(text) {
@@ -202,10 +207,15 @@ function startGame() {
     game.deck = createDeck();
     game.players = [];
     game.table = [];
+    game.originalTable = [];
     game.initialMeldDone = new Array(game.numPlayers).fill(false);
     game.currentPlayer = 0;
     game.gameOver = false;
     game.history = [];
+    game.draggedTile = null;
+    game.draggedFrom = null;
+    game.draggedIndex = null;
+    game.workspaceKeys = {};
 
     for (let i = 0; i < game.numPlayers; i++) {
         let hand = [];
@@ -231,98 +241,83 @@ function render() {
     let status = document.getElementById('status');
     let player = game.players[game.currentPlayer];
     let iceStatus = game.initialMeldDone[game.currentPlayer] ? '(已破冰)' : '(未破冰)';
-    status.innerHTML = `当前玩家: 玩家${game.currentPlayer + 1} ${iceStatus} | 桌面牌组数: ${game.table.length} | 牌堆剩余: ${game.deck.length}`;
+    status.innerHTML = `当前玩家：玩家${game.currentPlayer + 1} ${iceStatus} | 桌面牌组数：${game.table.length} | 牌堆剩余：${game.deck.length}`;
 
-    let tableDiv = document.getElementById('table');
+    renderTableArea();
+    renderHandArea();
+}
+
+function renderTableArea() {
+    let tableDiv = document.getElementById('tableArea');
     if (game.table.length === 0) {
-        tableDiv.innerHTML = '<em>桌面上没有牌组</em>';
+        tableDiv.innerHTML = '<em style="color:#888;">桌面上没有牌组，拖拽牌到这里创建牌组</em>';
     } else {
-        tableDiv.innerHTML = game.table.map((group) => {
-            return `[${group.map(t => tileToString(t)).join(' ')}]`;
-        }).join('\n');
+        tableDiv.innerHTML = '';
+        for (let i = 0; i < game.table.length; i++) {
+            let group = game.table[i];
+            let meldDiv = document.createElement('div');
+            meldDiv.className = 'meld-group';
+            meldDiv.id = `table-meld-${i}`;
+            meldDiv.ondrop = (e) => dropOnMeld(e, i);
+            meldDiv.ondragover = allowDrop;
+            meldDiv.ondragleave = leaveMeldDrop;
+            
+            for (let j = 0; j < group.length; j++) {
+                let tile = group[j];
+                let tileEl = createTileElement(tile, 'table', i, j);
+                meldDiv.appendChild(tileEl);
+            }
+            tableDiv.appendChild(meldDiv);
+        }
     }
+}
 
-    let handDiv = document.getElementById('playerHand');
-    let colorOrder = ['.', 'r', 'b', 'y'];
-    let colorLabels = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' };
+function renderHandArea() {
+    let handDiv = document.getElementById('handArea');
+    let player = game.players[game.currentPlayer];
     
-    let tileMap = {};
-    for (let c of colorOrder) tileMap[c] = {};
-    let standardJokers = [];
-    let doubleJokers = [];
-    let colorChangeJokers = [];
-    let mirrorJokers = [];
-    
+    handDiv.innerHTML = '';
+    let skippedCounts = {};
     for (let i = 0; i < player.length; i++) {
-        let t = player[i];
-        if (t.joker) {
-            switch(t.jokerType) {
-                case JOKER_TYPES.DOUBLE: doubleJokers.push(i); break;
-                case JOKER_TYPES.COLOR_CHANGE: colorChangeJokers.push(i); break;
-                case JOKER_TYPES.MIRROR: mirrorJokers.push(i); break;
-                default: standardJokers.push(i); break;
-            }
-        } else {
-            if (!tileMap[t.color][t.num]) tileMap[t.color][t.num] = [];
-            tileMap[t.color][t.num].push(i);
+        let tile = player[i];
+        let key = tileToKey(tile);
+        let wsCount = game.workspaceKeys[key] || 0;
+        let alreadySkipped = skippedCounts[key] || 0;
+        
+        if (alreadySkipped < wsCount) {
+            skippedCounts[key] = alreadySkipped + 1;
+            continue;
         }
+        
+        skippedCounts[key] = (skippedCounts[key] || 0) + 1;
+        let tileEl = createTileElement(tile, 'hand', null, i);
+        handDiv.appendChild(tileEl);
     }
+}
+
+function createTileElement(tile, source, groupIndex, tileIndex) {
+    let el = document.createElement('div');
+    el.className = 'tile';
     
-    let html = '<table class="hand-table"><tr><th></th>';
-    for (let n = 1; n <= 13; n++) html += `<th>${n}</th>`;
-    html += '<th>J</th></tr>';
-    
-    for (let c of colorOrder) {
-        html += `<tr><th class="color-header ${c === '.' ? 'black' : c}">${colorLabels[c]}</th>`;
-        for (let n = 1; n <= 13; n++) {
-            if (tileMap[c][n]) {
-                let tiles = tileMap[c][n];
-                let display = tiles.map(idx => {
-                    let t = player[idx];
-                    return `[${idx}]${t.num}${COLOR_NAMES[t.color]}`;
-                }).join('<br>');
-                html += `<td class="tile-cell ${c === '.' ? 'black' : c}">${display}</td>`;
-            } else {
-                html += '<td class="empty"></td>';
-            }
+    if (tile.joker) {
+        switch(tile.jokerType) {
+            case JOKER_TYPES.DOUBLE: el.classList.add('double-joker'); break;
+            case JOKER_TYPES.COLOR_CHANGE: el.classList.add('color-change-joker'); break;
+            case JOKER_TYPES.MIRROR: el.classList.add('mirror-joker'); break;
+            default: el.classList.add('joker'); break;
         }
-        html += '<td class="empty"></td></tr>';
-    }
-    
-    html += '<tr><th class="color-header">Joker</th><td colspan="13" class="empty"></td><td class="empty"></td></tr>';
-    if (standardJokers.length > 0) {
-        let display = standardJokers.map(idx => `[${idx}]JK`).join('<br>');
-        html += `<td class="tile-cell joker">${display}</td>`;
+        el.innerHTML = tileToString(tile);
     } else {
-        html += '<td class="empty"></td>';
+        el.classList.add(tile.color === '.' ? 'black' : tile.color);
+        let colorChar = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' }[tile.color];
+        el.innerHTML = `${colorChar}${tile.num}`;
     }
     
-    html += '<tr><th class="color-header">D-Joker</th><td colspan="13" class="empty"></td>';
-    if (doubleJokers.length > 0) {
-        let display = doubleJokers.map(idx => `[${idx}]DJK`).join('<br>');
-        html += `<td class="tile-cell joker">${display}</td>`;
-    } else {
-        html += '<td class="empty"></td>';
-    }
+    el.draggable = true;
+    el.ondragstart = (e) => startDrag(e, source, groupIndex, tileIndex, tile);
+    el.ondragend = endDrag;
     
-    html += '<tr><th class="color-header">C-Joker</th><td colspan="13" class="empty"></td>';
-    if (colorChangeJokers.length > 0) {
-        let display = colorChangeJokers.map(idx => `[${idx}]CJOK`).join('<br>');
-        html += `<td class="tile-cell joker">${display}</td>`;
-    } else {
-        html += '<td class="empty"></td>';
-    }
-    
-    html += '<tr><th class="color-header">M-Joker</th><td colspan="13" class="empty"></td>';
-    if (mirrorJokers.length > 0) {
-        let display = mirrorJokers.map(idx => `[${idx}]MJOK`).join('<br>');
-        html += `<td class="tile-cell joker">${display}</td>`;
-    } else {
-        html += '<td class="empty"></td>';
-    }
-    html += '</tr></table>';
-    
-    handDiv.innerHTML = html;
+    return el;
 }
 
 function getTileValue(tile) {
@@ -470,121 +465,115 @@ function validateColorChangeRun(tiles) {
     return true;
 }
 
-function showPlayForm() {
-    document.getElementById('actions').classList.add('hidden');
-    document.getElementById('playForm').classList.remove('hidden');
-    document.getElementById('playInput').value = '';
-    
-    let display = document.getElementById('currentTableDisplay');
-    if (game.table.length === 0) {
-        display.innerHTML = '<p>当前桌面: (空)</p>';
-    } else {
-        display.innerHTML = '<p>当前桌面: ' + game.table.map((group) => {
-            return `[${group.map(t => tileToString(t)).join(' ')}]`;
-        }).join('\n') + '</p>';
-    }
-}
-
-function cancelPlay() {
-    document.getElementById('playForm').classList.add('hidden');
-    document.getElementById('actions').classList.remove('hidden');
-    document.getElementById('message').innerHTML = '';
-}
-
-function playTiles() {
-    let input = document.getElementById('playInput').value.trim();
-    
-    let newTable = parseTableInput(input);
-    if (!newTable) {
-        document.getElementById('message').innerHTML = '<span style="color:red">格式错误! 正确格式: [牌1 牌2 牌3] [牌4 牌5 牌6]</span>';
-        return;
-    }
-    
-    for (let group of newTable) {
-        if (!validateSet(group) && !validateRun(group)) {
-            document.getElementById('message').innerHTML = '<span style="color:red">无效的牌组: ' + group.map(t => tileToString(t)).join(' ') + '</span>';
-            return;
-        }
-    }
-    
-    let oldTableFlat = flattenTable(game.table);
-    let newTableFlat = flattenTable(newTable);
+function confirmPlay() {
+    let oldTableFlat = flattenTable(game.originalTable);
+    let newTableFlat = flattenTable(game.table);
     
     let addedTiles = findAddedTiles(oldTableFlat, newTableFlat);
     let removedTiles = findRemovedTiles(oldTableFlat, newTableFlat);
     
-    if (addedTiles.length === 0) {
-        document.getElementById('message').innerHTML = '<span style="color:red">你没有打出任何新牌!</span>';
+    if (addedTiles.length === 0 && removedTiles.length === 0) {
+        showMessage('你没有进行任何操作!', 'error');
         return;
     }
     
+    // 验证：不能从桌面移除牌
     if (removedTiles.length > 0) {
-        document.getElementById('message').innerHTML = '<span style="color:red">无效操作: 不能从桌面移除牌! 移除了: ' + removedTiles.map(t => tileToString(t)).join(' ') + '</span>';
+        showMessage('无效操作：不能从桌面移除牌! 移除了：' + removedTiles.map(t => tileToString(t)).join(', '), 'error');
+        resetTable();
         return;
     }
     
+    // 验证：所有完整牌组（3+ 牌）必须合法
+    for (let group of game.table) {
+        if (group.length >= 3) {
+            if (!validateSet(group) && !validateRun(group)) {
+                showMessage('无效的牌组：' + group.map(t => tileToString(t)).join(' '), 'error');
+                resetTable();
+                return;
+            }
+        }
+    }
+    
+    // 验证：打出的牌必须在手牌中
     let player = game.players[game.currentPlayer];
-    let playerFlat = flattenHand(player);
+    let handCounts = {};
+    for (let tile of player) {
+        let key = tileToKey(tile);
+        handCounts[key] = (handCounts[key] || 0) + 1;
+    }
     
-    let canRemove = true;
-    let removeIndices = [];
-    let usedCount = {};
-    
+    let needCounts = {};
     for (let tile of addedTiles) {
         let key = tileToKey(tile);
-        let count = usedCount[key] || 0;
-        let available = countTiles(playerFlat, key);
-        
-        if (count >= available) {
-            canRemove = false;
-            break;
-        }
-        
-        let idx = findTileIndexInHand(player, tile, usedCount);
-        if (idx === -1) {
-            canRemove = false;
-            break;
-        }
-        removeIndices.push(idx);
-        usedCount[key] = count + 1;
+        needCounts[key] = (needCounts[key] || 0) + 1;
     }
     
-    if (!canRemove) {
-        document.getElementById('message').innerHTML = '<span style="color:red">你的手牌中没有这些牌: ' + addedTiles.map(t => tileToString(t)).join(' ') + '</span>';
-        return;
+    for (let key in needCounts) {
+        let have = handCounts[key] || 0;
+        let need = needCounts[key];
+        if (need > have) {
+            showMessage('你的手牌中缺少：' + need + ' 张 ' + key + ' (只有 ' + have + ' 张)', 'error');
+            resetTable();
+            return;
+        }
     }
+    
+    // 验证：从手牌中移除指定牌（按索引移除）
+    let removeIndices = [];
+    let usedCounts = {};
+    for (let tile of addedTiles) {
+        let key = tileToKey(tile);
+        let count = usedCounts[key] || 0;
+        let idx = findTileIndexInHand(player, tile, usedCounts);
+        if (idx === -1) {
+            showMessage('你的手牌中找不到这些牌：' + addedTiles.map(t => tileToString(t)).join(', '), 'error');
+            resetTable();
+            return;
+        }
+        removeIndices.push(idx);
+        usedCounts[key] = count + 1;
+    }
+    
+    removeIndices.sort((a, b) => b - a);
     
     let totalValue = addedTiles.reduce((sum, t) => sum + getTileValue(t), 0);
     
+    // 验证：首次出牌需要 15 分以上
     if (!game.initialMeldDone[game.currentPlayer]) {
         if (totalValue < 15) {
-            document.getElementById('message').innerHTML = `<span style="color:red">首次出牌需要至少15分，当前: ${totalValue}分</span>`;
+            showMessage(`首次出牌需要至少 15 分，当前：${totalValue}分`, 'error');
+            resetTable();
             return;
         }
         game.initialMeldDone[game.currentPlayer] = true;
     }
     
-    removeIndices.sort((a, b) => b - a);
+    // 所有验证通过，执行出牌
     for (let idx of removeIndices) {
         player.splice(idx, 1);
     }
     
-    game.table = newTable;
+    game.workspaceKeys = {};
+    game.originalTable = JSON.parse(JSON.stringify(game.table));
     
-    document.getElementById('message').innerHTML = `<span style="color:green">成功出牌! 分值: ${totalValue}</span>`;
-    
-    // 添加出牌记录到历史
     let playerName = game.currentPlayer === 0 ? '你' : `玩家${game.currentPlayer + 1}`;
     let tilesStr = addedTiles.map(t => tileToString(t)).join(', ');
-    addHistory(`${playerName}出牌: ${tilesStr} (${totalValue}分)`);
+    addHistory(`${playerName}出牌：${tilesStr} (${totalValue}分)`);
     
-    document.getElementById('playForm').classList.add('hidden');
-    document.getElementById('actions').classList.remove('hidden');
+    showMessage(`成功出牌！分值：${totalValue}`, 'success');
     
+    render();
     checkWin();
     if (!game.gameOver) {
         nextPlayer();
     }
+}
+
+function resetTable() {
+    game.table = JSON.parse(JSON.stringify(game.originalTable));
+    game.workspaceKeys = {};
+    render();
 }
 
 function parseTableInput(input) {
@@ -768,18 +757,112 @@ function findTileIndexInHand(hand, tile, usedCount) {
 
 function drawTile() {
     if (game.deck.length === 0) {
-        document.getElementById('message').innerHTML = '<span style="color:red">牌堆已空!</span>';
+        showMessage('牌堆已空!', 'error');
         return;
     }
     let tile = game.deck.pop();
     game.players[game.currentPlayer].push(tile);
-    document.getElementById('message').innerHTML = `<span style="color:green">抽到: ${tileToString(tile)}</span>`;
+    showMessage(`抽到：${tileToString(tile)}`, 'success');
     
-    // 添加抽牌记录到历史
     let playerName = game.currentPlayer === 0 ? '你' : `玩家${game.currentPlayer + 1}`;
-    addHistory(`${playerName}抽牌: ${tileToString(tile)}`);
+    addHistory(`${playerName}抽牌：${tileToString(tile)}`);
     
     nextPlayer();
+}
+
+function showMessage(msg, type) {
+    let msgDiv = document.getElementById('message');
+    msgDiv.innerHTML = `<div class="message ${type}">${msg}</div>`;
+    setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
+}
+
+function startDrag(e, source, groupIndex, tileIndex, tile) {
+    game.draggedTile = tile;
+    game.draggedFrom = source;
+    game.draggedIndex = { groupIndex, tileIndex };
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function endDrag(e) {
+    document.querySelectorAll('.tile').forEach(t => t.classList.remove('dragging'));
+}
+
+function allowDrop(e) {
+    e.preventDefault();
+    e.target.closest('.meld-group')?.classList.add('drag-over');
+}
+
+function leaveMeldDrop(e) {
+    e.target.closest('.meld-group')?.classList.remove('drag-over');
+}
+
+function leaveTableDrop(e) {
+    document.getElementById('tableArea').classList.remove('drag-over');
+}
+
+function dropOnTable(e) {
+    e.preventDefault();
+    document.getElementById('tableArea').classList.remove('drag-over');
+    
+    if (!game.draggedTile) return;
+    
+    let newTable = JSON.parse(JSON.stringify(game.table));
+    
+    if (game.draggedFrom === 'hand') {
+        newTable.push([JSON.parse(JSON.stringify(game.draggedTile))]);
+        let key = tileToKey(game.draggedTile);
+        game.workspaceKeys[key] = (game.workspaceKeys[key] || 0) + 1;
+    } else if (game.draggedFrom === 'table') {
+        let srcGroup = game.draggedIndex.groupIndex;
+        let srcTile = game.draggedIndex.tileIndex;
+        newTable[srcGroup].splice(srcTile, 1);
+        if (newTable[srcGroup].length === 0) {
+            newTable.splice(srcGroup, 1);
+        }
+        newTable.push([JSON.parse(JSON.stringify(game.draggedTile))]);
+    }
+    
+    game.table = newTable;
+    game.draggedTile = null;
+    game.draggedFrom = null;
+    render();
+}
+
+function dropOnMeld(e, targetGroupIndex) {
+    e.preventDefault();
+    let targetMeld = document.querySelector(`#table-meld-${targetGroupIndex}`);
+    targetMeld?.classList.remove('drag-over');
+    
+    if (!game.draggedTile) return;
+    
+    let newTable = JSON.parse(JSON.stringify(game.table));
+    
+    if (game.draggedFrom === 'hand') {
+        if (!newTable[targetGroupIndex]) {
+            newTable[targetGroupIndex] = [];
+        }
+        newTable[targetGroupIndex].push(JSON.parse(JSON.stringify(game.draggedTile)));
+        let key = tileToKey(game.draggedTile);
+        game.workspaceKeys[key] = (game.workspaceKeys[key] || 0) + 1;
+    } else if (game.draggedFrom === 'table') {
+        let srcGroup = game.draggedIndex.groupIndex;
+        let srcTile = game.draggedIndex.tileIndex;
+        let tile = newTable[srcGroup].splice(srcTile, 1)[0];
+        if (newTable[srcGroup].length === 0) {
+            newTable.splice(srcGroup, 1);
+            if (targetGroupIndex >= srcGroup) targetGroupIndex = Math.max(0, targetGroupIndex - 1);
+        }
+        if (!newTable[targetGroupIndex]) {
+            newTable[targetGroupIndex] = [];
+        }
+        newTable[targetGroupIndex].push(tile);
+    }
+    
+    game.table = newTable;
+    game.draggedTile = null;
+    game.draggedFrom = null;
+    render();
 }
 
 function checkWin() {
@@ -810,6 +893,8 @@ function nextPlayer() {
     game.currentPlayer = (game.currentPlayer + 1) % game.numPlayers;
     
     if (game.currentPlayer === 0) {
+        game.workspaceKeys = {};
+        game.originalTable = JSON.parse(JSON.stringify(game.table));
         render();
         return;
     }
@@ -826,28 +911,25 @@ function aiPlay() {
         if (bestGroup && getGroupValue(bestGroup) >= 15) {
             let indices = [];
             for (let tile of bestGroup) {
-                let idx = player.findIndex(t => t === tile);
+                let idx = player.findIndex(t => tileToKey(t) === tileToKey(tile));
                 if (idx >= 0) indices.push(idx);
             }
             indices.sort((a, b) => b - a);
             for (let idx of indices) player.splice(idx, 1);
             game.table.push(bestGroup);
             game.initialMeldDone[playerIdx] = true;
-            document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}破冰成功!</span>`;
+            showMessage(`电脑玩家${playerIdx + 1}破冰成功!`, 'success');
             
-            // 添加破冰记录到历史
             let tilesStr = bestGroup.map(t => tileToString(t)).join(', ');
-            addHistory(`玩家${playerIdx + 1}破冰: ${tilesStr}`);
+            addHistory(`玩家${playerIdx + 1}破冰：${tilesStr}`);
         } else {
             if (game.deck.length > 0) {
                 let tile = game.deck.pop();
                 player.push(tile);
-                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}抽了一张牌</span>`;
-                
-                // 添加抽牌记录到历史
-                addHistory(`玩家${playerIdx + 1}抽牌: ${tileToString(tile)}`);
+                showMessage(`电脑玩家${playerIdx + 1}抽了一张牌`, 'success');
+                addHistory(`玩家${playerIdx + 1}抽牌：${tileToString(tile)}`);
             } else {
-                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}未出牌</span>`;
+                showMessage(`电脑玩家${playerIdx + 1}未出牌`, 'success');
             }
         }
     } else {
@@ -856,28 +938,25 @@ function aiPlay() {
             let group = validGroups[0];
             let indices = [];
             for (let tile of group) {
-                let idx = player.findIndex(t => t === tile);
+                let idx = player.findIndex(t => tileToKey(t) === tileToKey(tile));
                 if (idx >= 0) indices.push(idx);
             }
             indices.sort((a, b) => b - a);
             for (let idx of indices) player.splice(idx, 1);
             game.table.push(group);
-            document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}出牌成功!</span>`;
+            showMessage(`电脑玩家${playerIdx + 1}出牌成功!`, 'success');
             
-            // 添加出牌记录到历史
             let tilesStr = group.map(t => tileToString(t)).join(', ');
             let value = getGroupValue(group);
-            addHistory(`玩家${playerIdx + 1}出牌: ${tilesStr} (${value}分)`);
+            addHistory(`玩家${playerIdx + 1}出牌：${tilesStr} (${value}分)`);
         } else {
             if (game.deck.length > 0) {
                 let tile = game.deck.pop();
                 player.push(tile);
-                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}抽了一张牌</span>`;
-                
-                // 添加抽牌记录到历史
-                addHistory(`玩家${playerIdx + 1}抽牌: ${tileToString(tile)}`);
+                showMessage(`电脑玩家${playerIdx + 1}抽了一张牌`, 'success');
+                addHistory(`玩家${playerIdx + 1}抽牌：${tileToString(tile)}`);
             } else {
-                document.getElementById('message').innerHTML = `<span style="color:blue">电脑玩家${playerIdx + 1}未出牌</span>`;
+                showMessage(`电脑玩家${playerIdx + 1}未出牌`, 'success');
             }
         }
     }
@@ -886,6 +965,8 @@ function aiPlay() {
     if (!game.gameOver) {
         game.currentPlayer = (game.currentPlayer + 1) % game.numPlayers;
         if (game.currentPlayer === 0) {
+            game.workspaceKeys = {};
+            game.originalTable = JSON.parse(JSON.stringify(game.table));
             render();
         } else {
             setTimeout(aiPlay, 500);
