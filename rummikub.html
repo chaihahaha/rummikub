@@ -308,7 +308,8 @@ function createTileElement(tile, source, groupIndex, tileIndex) {
         }
         el.innerHTML = tileToString(tile);
     } else {
-        el.classList.add(tile.color === '.' ? 'black' : tile.color);
+        let colorClass = { '.': 'black', 'r': 'red', 'b': 'blue', 'y': 'yellow' }[tile.color];
+        el.classList.add(colorClass);
         let colorChar = { '.': '黑', 'r': '红', 'b': '蓝', 'y': '黄' }[tile.color];
         el.innerHTML = `${colorChar}${tile.num}`;
     }
